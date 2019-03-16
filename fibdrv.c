@@ -90,9 +90,10 @@ static ssize_t fib_read(struct file *file,
 {
     ktime_t before = ktime_get_real();
     ssize_t ret = fib_sequence(*offset);
+    sprintf(buf, "%ld", ret);
     ktime_t after = ktime_get_real();
     record_time(ktime_to_ns(ktime_sub(after, before)));
-    return ret;
+    return 0;
 }
 
 /* write operation is skipped */
