@@ -6,6 +6,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/timekeeping.h>
+#include <asm/uaccess.h>
+#include <linux/string.h>
 
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("National Cheng Kung University, Taiwan");
@@ -23,6 +26,31 @@ static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
+
+void record_time(s64 t)
+{
+    // printk(KERN_INFO "time:%lld",t);
+    struct file *f;
+    char buf[128];
+    mm_segment_t fs;
+    // int i;
+
+    f = filp_open("/home/jeffcarl67/git/fibdrv/fibdrv.txt",
+                  O_WRONLY | O_CREAT | O_APPEND, 0666);
+
+    if (!f)
+        printk(KERN_ALERT "filp_open error");
+    else {
+        fs = get_fs();
+        set_fs(get_ds());
+        sprintf(buf, "%lld\n", t);
+        // f->f_op->write(f, buf, 128, &f->f_pos);
+        vfs_write(f, buf, strlen(buf), &f->f_pos);
+        set_fs(fs);
+    }
+
+    filp_close(f, NULL);
+}
 
 static long long fib_sequence(long long k)
 {
@@ -60,7 +88,11 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_sequence(*offset);
+    ktime_t before = ktime_get_real();
+    ssize_t ret = fib_sequence(*offset);
+    ktime_t after = ktime_get_real();
+    record_time(ktime_to_ns(ktime_sub(after, before)));
+    return ret;
 }
 
 /* write operation is skipped */
