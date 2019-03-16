@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <time.h>
 
 #define FIB_DEV "/dev/fibonacci"
 
@@ -17,7 +18,12 @@ int main()
     int offset = 100;  // TODO: test something bigger than the limit
     int i = 0;
 
+    int fd_log;
+    char log[100];
+    struct timespec before, after;
+
     fd = open(FIB_DEV, O_RDWR);
+    fd_log = open("client.txt", O_WRONLY | O_CREAT, 0666);
 
     if (fd < 0) {
         perror("Failed to open character device");
@@ -31,7 +37,11 @@ int main()
 
     for (i = 0; i <= offset; i++) {
         lseek(fd, i, SEEK_SET);
+        clock_gettime(CLOCK_REALTIME, &before);
         sz = read(fd, buf, 1);
+        clock_gettime(CLOCK_REALTIME, &after);
+        sprintf(log, "%ld\n", after.tv_nsec - before.tv_nsec);
+        write(fd_log, log, strlen(log));
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "%lld.\n",
@@ -40,13 +50,18 @@ int main()
 
     for (i = offset; i >= 0; i--) {
         lseek(fd, i, SEEK_SET);
+        clock_gettime(CLOCK_REALTIME, &before);
         sz = read(fd, buf, 1);
+        clock_gettime(CLOCK_REALTIME, &after);
+        sprintf(log, "%ld\n", after.tv_nsec - before.tv_nsec);
+        write(fd_log, log, strlen(log));
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "%lld.\n",
                i, sz);
     }
 
+    close(fd_log);
     close(fd);
     return 0;
 }
