@@ -27,6 +27,70 @@ static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
 
+typedef struct fib_num {
+    uint32_t word[4];  // 128 bit
+} f_num_t;
+
+static void u32_to_fib_num(f_num_t *f, uint32_t num)
+{
+    if (!f)
+        return;
+    f->word[0] = num;
+    f->word[1] = 0;
+    f->word[2] = 0;
+    f->word[3] = 0;
+}
+
+static void fib_num_add(f_num_t *f1, f_num_t *f2, f_num_t *r)
+{
+    int i;
+    uint32_t tmp;
+    uint32_t carry;
+    if (!f1 || !f2 || !r)
+        return;
+    carry = 0;
+    for (i = 0; i < 4; i++) {
+        tmp = f1->word[i] + f2->word[i] + carry;
+        if (tmp < f1->word[i] || tmp < f2->word[i])
+            carry = 1;
+        else
+            carry = 0;
+        r->word[i] = tmp;
+    }
+}
+
+static void fib_num_sub(f_num_t *f1, f_num_t *f2, f_num_t *r)
+{
+    int i;
+    uint32_t tmp;
+    uint32_t borrow;
+    if (!f1 || !f2 || !r)
+        return;
+    borrow = 0;
+    for (i = 0; i < 4; i++) {
+        tmp = f1->word[i] - f2->word[i] - borrow;
+        if (tmp > f1->word[i])
+            borrow = 1;
+        else
+            borrow = 0;
+        r->word[i] = tmp;
+    }
+}
+
+static f_num_t big_fib_sequence(long long k)
+{
+    f_num_t f[k + 2];
+
+    u32_to_fib_num(&f[0], 0);
+    u32_to_fib_num(&f[1], 1);
+
+    for (int i = 2; i <= k; i++) {
+        fib_num_add(&f[i - 1], &f[i - 2], &f[i]);
+    }
+
+    return f[k];
+}
+
 void record_time(s64 t)
 {
     // printk(KERN_INFO "time:%lld",t);
@@ -116,10 +180,14 @@ static ssize_t fib_read(struct file *file,
                         loff_t *offset)
 {
     ktime_t before = ktime_get_real();
-    ssize_t ret = fib_sequence(*offset);
-    sprintf(buf, "%ld", ret);
+    f_num_t f = big_fib_sequence(*offset);
     ktime_t after = ktime_get_real();
     record_time(ktime_to_ns(ktime_sub(after, before)));
+
+    sprintf(buf, "0x%x", f.word[3]);
+    sprintf(buf + strlen(buf), "%x", f.word[2]);
+    sprintf(buf + strlen(buf), "%x", f.word[1]);
+    sprintf(buf + strlen(buf), "%x", f.word[0]);
     return 0;
 }
 
