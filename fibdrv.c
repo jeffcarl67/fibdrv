@@ -52,9 +52,32 @@ void record_time(s64 t)
     filp_close(f, NULL);
 }
 
+static void fast_doubling(long long k, long long *ans)
+{
+    long long a, b, c, d;
+    if (k == 0) {
+        ans[0] = 0;
+        ans[1] = 1;
+        return;
+    }
+    fast_doubling(k / 2, ans);
+    a = ans[0];
+    b = ans[1];
+    c = a * (b * 2 - a);
+    d = a * a + b * b;
+    if (k % 2 == 0) {
+        ans[0] = c;
+        ans[1] = d;
+    } else {
+        ans[0] = d;
+        ans[1] = c + d;
+    }
+}
+
 static long long fib_sequence(long long k)
 {
     /* FIXME: use clz/ctz and fast algorithms to speed up */
+    /*
     long long f[k + 2];
 
     f[0] = 0;
@@ -65,6 +88,10 @@ static long long fib_sequence(long long k)
     }
 
     return f[k];
+    */
+    long long ans[2] = {0};
+    fast_doubling(k, ans);
+    return ans[0];
 }
 
 static int fib_open(struct inode *inode, struct file *file)
